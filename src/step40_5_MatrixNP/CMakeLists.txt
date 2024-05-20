@@ -16,9 +16,10 @@ SET(TARGET "step-40")
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -g")
-#SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -v -Wl, --warn-unresolved-symbols")
-FILE(GLOB_RECURSE TARGET_SRC  "step-40.cc")
-FILE(GLOB_RECURSE TARGET_INC  "Electrical_Constants.hpp" "Electrical_Values.hpp" "Electrical_Values_impl.hpp")
+
+FILE(GLOB_RECURSE TARGET_SRC  "*.cc")
+FILE(GLOB_RECURSE TARGET_INC  "*.h")
+FILE(GLOB_RECURSE TARGET_INC  "*.hpp")
 SET(TARGET_SRC ${TARGET_SRC}  ${TARGET_INC})
 
 # Usually, you will not need to modify anything beyond this point...
