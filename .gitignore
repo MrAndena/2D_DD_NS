@@ -33,3 +33,6 @@
 
 # Ignore files in the .vscode directory
 .vscode/
+
+# Ignore build directory
+.build/

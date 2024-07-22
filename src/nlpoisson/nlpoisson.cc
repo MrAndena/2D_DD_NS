@@ -8,11 +8,18 @@
 template <int dim>
 void create_triangulation(parallel::distributed::Triangulation<dim> &tria)
 {
-  const std::string filename = "./mesh.msh";
+  const std::string filename = "../../../Meshes/Structured_Square.msh"; //remember: you run from build directory
 
   ConditionalOStream pcout(std::cout, (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0));
 
   std::ifstream input_file(filename);
+
+  if (!input_file.is_open())
+  {
+    std::cerr << "Errore: impossibile aprire il file di mesh." << std::endl;
+    return;
+  }
+
   pcout <<"Reading the mesh from " << filename << std::endl;
   GridIn<2>  grid_in; //This class implements an input mechanism for grid data. It allows to read a grid structure into a triangulation object
   grid_in.attach_triangulation(tria); //we pass to grid_in our (empty) triangulation
