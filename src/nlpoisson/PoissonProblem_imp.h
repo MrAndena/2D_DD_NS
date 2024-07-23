@@ -41,20 +41,17 @@ namespace {
 
 
       std::map<types::global_dof_index, double> emitter_boundary_values, collector_boundary_values;
-
-      PETScWrappers::MPI::Vector temp00(locally_owned_dofs, mpi_communicator);
+      
+      PETScWrappers::MPI::Vector temp00(locally_owned_dofs, mpi_communicator); //non-ghosted auxiliary vector
       temp00=newton_update;
+
       VectorTools::interpolate_boundary_values(mapping, dof_handler,1, Functions::ZeroFunction<dim>(), emitter_boundary_values);
       MatrixTools::apply_boundary_values(emitter_boundary_values, system_matrix, temp00, system_rhs);
+   
+      VectorTools::interpolate_boundary_values(mapping, dof_handler,2, Functions::ZeroFunction<dim>(), collector_boundary_values);
+      MatrixTools::apply_boundary_values(collector_boundary_values, system_matrix, temp00, system_rhs);
+      
       newton_update=temp00;
-  
-      PETScWrappers::MPI::Vector temp000(locally_owned_dofs, mpi_communicator);
-      temp000=newton_update;
-      VectorTools::interpolate_boundary_values(mapping, dof_handler,2, Functions::ZeroFunction<dim>(),
-					       collector_boundary_values);
-      MatrixTools::apply_boundary_values(collector_boundary_values, system_matrix,
-					 temp000, system_rhs);
-      newton_update=temp000;
       
       
       pcout << " done! "  << std::endl;
@@ -77,8 +74,16 @@ namespace {
       pcout << "    WARNING! MAX NUMBER OF ITERATIONS REACHED!" << std::endl;
     }
 
-  
     pcout << " -- END NEWTON METHOD -- "<< std::endl;
+    
+    //stop the timer to see the elapsed time
+    timer.stop();
+ 
+    pcout << "   Elapsed CPU time: " << timer.cpu_time() << " seconds."<<std::endl;
+    pcout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
+
+    // reset timer for the next thing it shall do
+    timer.reset();
   
   }
 
@@ -212,12 +217,12 @@ namespace {
   void PoissonProblem<dim>:: compute_densities(){   
   
     // in this function we compute the densities of electrons and holes starting from current solution that is the potential
-
+    
     PETScWrappers::MPI::Vector temp_elec; //for elec density
     PETScWrappers::MPI::Vector temp_hole; //for hole density
 
-    temp_elec.reinit(locally_owned_dofs, mpi_communicator);
-    temp_hole.reinit(locally_owned_dofs, mpi_communicator);
+    temp_elec.reinit(locally_owned_dofs, mpi_communicator); //non-ghosted
+    temp_hole.reinit(locally_owned_dofs, mpi_communicator); //non-ghosted
 
     temp_elec = current_solution;
     temp_hole = current_solution;

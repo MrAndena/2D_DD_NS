@@ -114,6 +114,7 @@ namespace {
       ConditionalOStream pcout;
       MappingQ1<dim> mapping;
       
+      Timer timer;
     };
 
 } // namespace
