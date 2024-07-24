@@ -39,7 +39,6 @@ namespace {
       assemble_system_matrix();
 
 
-
       std::map<types::global_dof_index, double> emitter_boundary_values, collector_boundary_values;
       
       PETScWrappers::MPI::Vector temp00(locally_owned_dofs, mpi_communicator); //non-ghosted auxiliary vector
@@ -52,7 +51,8 @@ namespace {
       MatrixTools::apply_boundary_values(collector_boundary_values, system_matrix, temp00, system_rhs);
       
       newton_update=temp00;
-      
+
+
       
       pcout << " done! "  << std::endl;
       
@@ -192,23 +192,14 @@ namespace {
   template <int dim>
   void PoissonProblem<dim>:: initialize_densities(){   
 
-    PETScWrappers::MPI::Vector temp_initial_elec;
-    PETScWrappers::MPI::Vector temp_initial_hole;    
-  
-    temp_initial_elec.reinit(locally_owned_dofs, mpi_communicator);
-    temp_initial_hole.reinit(locally_owned_dofs, mpi_communicator);
+    VectorTools::interpolate( dof_handler, ElectronInitialValues<dim>(), electron_density);
+    VectorTools::interpolate( dof_handler, HoleInitialValues<dim>(), hole_density);
 
-    temp_initial_elec = 0;
-    temp_initial_hole = 0;
+    electron_density.update_ghost_values();
+    hole_density.update_ghost_values();
 
-    VectorTools::interpolate(mapping, dof_handler, ElectronInitialValues<dim>(), temp_initial_elec);
-    VectorTools::interpolate(mapping, dof_handler, HoleInitialValues<dim>(), temp_initial_hole);
-
-    temp_initial_elec.compress(VectorOperation::insert);
-    temp_initial_hole.compress(VectorOperation::insert);
-  
-    electron_density = temp_initial_elec;
-    hole_density = temp_initial_hole;
+    electron_density.compress(VectorOperation::insert);
+    hole_density.compress(VectorOperation::insert);
 
   }
   
@@ -244,7 +235,7 @@ namespace {
   
     electron_density = temp_elec;
     hole_density = temp_hole;
-  
+    
     // pcout << " The L2 norm of electorn density is: "<< electron_density.l2_norm()<< std::endl;
     // pcout << " The L_INF norm of electron density is: "<< electron_density.linfty_norm()<< std::endl;
 
@@ -447,20 +438,19 @@ namespace {
   template <int dim>
   void PoissonProblem<dim>::assemble_system_matrix()
   {
-    //BUILDING SYSTEM MATRIX
 
-    // initialize both matrices 
+    //BUILDING SYSTEM MATRIX
     system_matrix = 0;
     density_matrix = 0;
   
-    PETScWrappers::MPI::Vector temp_elec; //temporary non-ghosted vector that stores electorn_density
-    PETScWrappers::MPI::Vector temp_hole; //temporary non-ghosted vector that stores hole_density
+    PETScWrappers::MPI::Vector temp_1; //temporary non-ghosted vector number 1
+    PETScWrappers::MPI::Vector temp_2; //temporary non-ghosted vector number 2
   
-    temp_elec.reinit(locally_owned_dofs, mpi_communicator);
-    temp_hole.reinit(locally_owned_dofs, mpi_communicator);
+    temp_1.reinit(locally_owned_dofs, mpi_communicator);
+    temp_2.reinit(locally_owned_dofs, mpi_communicator);
 
-    temp_elec = electron_density;
-    temp_hole = hole_density;
+    temp_1 = electron_density; //temp_1 store electron_density "n"
+    temp_2 = hole_density;     //temp_2 store hole_density "p"
 
     double new_value = 0;
   
@@ -468,7 +458,7 @@ namespace {
 
     for (auto iter = locally_owned_dofs.begin(); iter != locally_owned_dofs.end(); ++iter){ 
 
-      new_value = mass_matrix(*iter, *iter) * (temp_elec[*iter] + temp_hole[*iter]);
+      new_value = mass_matrix(*iter, *iter) * (temp_1[*iter] + temp_2[*iter]);
       density_matrix.set(*iter,*iter,new_value);
 
     }
@@ -489,39 +479,21 @@ namespace {
     // BUILDING SYSTEM RHS
     system_rhs = 0;
 
-    PETScWrappers::MPI::Vector temp;
-    PETScWrappers::MPI::Vector altro_temp;
+    temp_1.add(-1., temp_2);   // temp_1 = temp_1 - temp_2 -->  temp_1 = n - p
 
-    temp.reinit(locally_owned_dofs, mpi_communicator);
-    altro_temp.reinit(locally_owned_dofs, mpi_communicator);
-  
-    temp = 0;
-    altro_temp = 0;
+    VectorTools::interpolate(mapping, dof_handler, DopingValues<dim>(), temp_2);  //temp_2 = N ; where N is 1e+22 on the left side and 1e-22 on the right
 
-    MappingQ1<dim> mapping;
-    PETScWrappers::MPI::Vector doping;     //store the term N, that is 1e+22 on the left side and 1e-22 on the right
-    doping.reinit(locally_owned_dofs, mpi_communicator);
-    doping = 0;
-    VectorTools::interpolate(mapping, dof_handler, DopingValues<dim>(), doping); // We interpolate the previusly
-                                                                                 // created vector with the values
-                                                                                 // of Doping provided by DopingValues
+    temp_1.add(-1., temp_2);      // temp_1 = n -p -N
 
-  
-    temp.add(+1., temp_elec);   // temp = temp + temp_elec
-    temp.add(-1., temp_hole);   // temp = temp - temp_hole
-    temp.add(-1., doping);      // temp = temp - doping
+    // basically: temp_1 = (n -p -N)
+    mass_matrix.vmult(temp_2,temp_1);  // temp_2 = MASS*(n-p-N)
+    system_rhs.add(-q0, temp_2);       // SYS_RHS = -q0*MASS*(n-p-N)
 
-    // basically: temp = (n -p -N)
-    mass_matrix.vmult(altro_temp,temp);  // altro_temo = MASS*(n-p-N)
-    system_rhs.add(-q0, altro_temp);     // SYS_RHS = -q0*MASS*(n-p-N)
-
-    temp = current_solution;                      // temp = phi 
-    laplace_matrix.vmult(altro_temp, temp);       // altro_temp = A*phi
-    system_rhs.add(- eps_r * eps_0, altro_temp);  //SYS_RHS = SYS_RHS - eps*A*phi
+    temp_1 = current_solution;                    // temp_1 = phi 
+    laplace_matrix.vmult(temp_2, temp_1);         // temp_2 = A*phi
+    system_rhs.add(- eps_r * eps_0, temp_2);       //SYS_RHS = SYS_RHS - eps*A*phi
 
     // zero_constraints.distribute(system_rhs);
-
-
   }
   //----------------------------------------------------------------------------------------------------------------------------
 
@@ -534,9 +506,7 @@ namespace {
     PETScWrappers::SparseDirectMUMPS solverMUMPS(sc_p);     
     solverMUMPS.solve(system_matrix, temp, system_rhs);
 
-    //CLAMPING
-    double result=0;
-  
+    //CLAMPING  
     for (auto iter = locally_owned_dofs.begin(); iter != locally_owned_dofs.end(); ++iter){ 
   
       if (temp[*iter] < -V_TH) { temp[*iter] = -V_TH; }
@@ -568,7 +538,6 @@ namespace {
     data_out.add_data_vector(electron_density, "n");
     data_out.add_data_vector(hole_density,     "p");
 
-    MappingQ1<dim> mapping;
     PETScWrappers::MPI::Vector doping;     //store the term N, that is 1e+22 on the left side and 1e-22 on the right
     doping.reinit(locally_owned_dofs, mpi_communicator);
     doping = 0;
@@ -588,7 +557,5 @@ namespace {
     //pcout << " End of output_results"<< std::endl<<std::endl;
 
   }
-
-
 
 }
