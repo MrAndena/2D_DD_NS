@@ -17,7 +17,8 @@ namespace {
   
     pcout << "    INITIALIZE POTENTIAL AND DENSITIES ... ";
     initialize_current_solution();
-    compute_densities();
+    //compute_densities();
+    output_results(counter);
     pcout << " done! "  << std::endl;
   
     pcout << "    BUILD LAPLACE - MASS MATRICES ... ";
@@ -31,10 +32,10 @@ namespace {
   
 
     while(counter < max_iter && increment_norm > toll){
-
+      counter ++; 
       compute_densities();
       
-      pcout << "    NEWTON ITERATION NUMBER: "<< counter +1 <<std::endl;
+      pcout << "    NEWTON ITERATION NUMBER: "<< counter  <<std::endl;
       pcout << "    Assemble System Matrix ... ";
       assemble_system_matrix();
 
@@ -52,8 +53,6 @@ namespace {
       
       newton_update=temp00;
 
-
-      
       pcout << " done! "  << std::endl;
       
       pcout << "    Solve System ... ";
@@ -66,7 +65,7 @@ namespace {
       pcout << "    OUTPUT RESULT "<< std::endl;
       output_results(counter);
 
-      counter ++; 
+      
     }
   
 
@@ -185,21 +184,6 @@ namespace {
     current_solution = temp;
     // pcout << " End of initialization_current_solution "<< std::endl<<std::endl;
 
-
-  }
-
-  //-----------------------------------------------------------------------------------------------------------------------------
-  template <int dim>
-  void PoissonProblem<dim>:: initialize_densities(){   
-
-    VectorTools::interpolate( dof_handler, ElectronInitialValues<dim>(), electron_density);
-    VectorTools::interpolate( dof_handler, HoleInitialValues<dim>(), hole_density);
-
-    electron_density.update_ghost_values();
-    hole_density.update_ghost_values();
-
-    electron_density.compress(VectorOperation::insert);
-    hole_density.compress(VectorOperation::insert);
 
   }
   
