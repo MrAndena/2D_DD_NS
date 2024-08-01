@@ -249,7 +249,7 @@ namespace {
     FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
 
     std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-
+    
     unsigned int q_point = 0, idof = 0, jdof = 0;
     for (const auto &cell : dof_handler.active_cell_iterators()){
       if (cell->is_locally_owned()){

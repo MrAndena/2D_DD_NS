@@ -8,7 +8,7 @@
 template <int dim>
 void create_triangulation(parallel::distributed::Triangulation<dim> &tria)
 {
-  const std::string filename = "../../../../Structured_Meshes/Structured_Square.msh"; //remember: you run from build directory
+  const std::string filename = "../../../Meshes/Structured_Square.msh"; //remember: you run from build directory
 
   ConditionalOStream pcout(std::cout, (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0));
 
@@ -16,7 +16,7 @@ void create_triangulation(parallel::distributed::Triangulation<dim> &tria)
 
   if (!input_file.is_open())
   {
-    std::cerr << "Errore: impossibile aprire il file di mesh." << std::endl;
+    std::cerr << "Error: impossible to open mesh file." << std::endl;
     return;
   }
 

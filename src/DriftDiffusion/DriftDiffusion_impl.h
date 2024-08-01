@@ -56,6 +56,28 @@ namespace {
     pcout<< "   Solve drift diffusion"<<std::endl;
     solve_drift_diffusion();
     
+    /*stampare matrici
+    if(cycle_drift_diffusion==1 ){
+      std::ofstream outFile("cycle_1_hole_matrix.dat");
+      hole_matrix.print(outFile);
+      outFile.close();
+      std::ofstream outFile2("cycle_1_electron_matrix.dat");
+      electron_matrix.print(outFile2);
+      outFile.close();
+    }
+
+    if(cycle_drift_diffusion==2){
+      std::ofstream outFile("cycle_2_hole_matrix.dat");
+      hole_matrix.print(outFile);
+      outFile.close();
+      std::ofstream outFile2("cycle_2_electron_matrix.dat");
+      electron_matrix.print(outFile2);
+      outFile.close();
+    }
+*/
+
+
+    
     pcout<< "   Update error for convergence"<<std::endl;
 
     electron_tol = 1.e-10*old_electron_density.linfty_norm();
@@ -68,17 +90,23 @@ namespace {
     temp = electron_density;
     temp.add(-1.,old_electron_density);
     electron_err = temp.linfty_norm();
+    
+    pcout<<"   Hole density error: "<< hole_err<<std::endl;
+    pcout<<"   Electron density error: "<< electron_err<<std::endl<<std::endl;
 
     output_results(cycle_drift_diffusion);
+    
+
+    pcout << "   The L2 norm old hole density: " << old_hole_density.l2_norm() << std::endl;
+    pcout << "   The L2 norm old electron density: " << old_electron_density.l2_norm() << std::endl;
 
     old_hole_density = hole_density;
     old_electron_density = electron_density;
     
-    pcout<<"   Hole density tolerance: "<< hole_tol<<std::endl;
-    pcout<<"   Electron density tolerance: "<< electron_tol<<std::endl<<std::endl;
+    pcout << "   The L2 norm new hole density: " << old_hole_density.l2_norm() << std::endl;
+    pcout << "   The L2 norm new electron density: " << old_electron_density.l2_norm() << std::endl;
 
-    pcout<<"   Hole density error: "<< hole_err<<std::endl;
-    pcout<<"   Electron density error: "<< electron_err<<std::endl<<std::endl;
+
     
     }
 
@@ -206,7 +234,7 @@ namespace {
   
   // POTENTIAL INITIAL CONDITION
   // null with the right BCs
-
+  /*
   PETScWrappers::MPI::Vector temp(locally_owned_dofs, mpi_communicator); //non ghosted vector, needed for imposing BCs
 
   temp = current_solution; //current solution here is zero by default constructor
@@ -247,7 +275,27 @@ namespace {
   }
   temp.compress(VectorOperation::insert);
   old_hole_density = temp;
+  */
   //pcout << "   End of initialization_current_solution "<< std::endl;
+  PETScWrappers::MPI::Vector temp_pot(locally_owned_dofs, mpi_communicator);
+  PETScWrappers::MPI::Vector temp_hole(locally_owned_dofs, mpi_communicator);
+  PETScWrappers::MPI::Vector temp_elec(locally_owned_dofs, mpi_communicator);
+
+  temp_pot = current_solution;
+  temp_hole = old_hole_density;
+  temp_elec = old_electron_density;
+
+	VectorTools::interpolate(mapping, dof_handler, PotentialValues<dim>(), temp_pot);
+	VectorTools::interpolate(mapping, dof_handler, HoleInitialValues<dim>(), temp_hole);
+	VectorTools::interpolate(mapping, dof_handler, ElectronInitialValues<dim>(), temp_elec);
+  
+  temp_pot.compress(VectorOperation::insert);
+  temp_hole.compress(VectorOperation::insert);
+  temp_elec.compress(VectorOperation::insert);
+
+  current_solution = temp_pot;
+  old_hole_density = temp_hole;
+  old_electron_density = temp_elec;
   }
   
   //-----------------------------------------------------------------------------------------------------------------------------
@@ -657,10 +705,10 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
     
     rhs_hole_density.compress(VectorOperation::add);
     rhs_electron_density.compress(VectorOperation::add);
-    /*
-    pcout << "   L_INF norm of the hole matrix:   "<<hole_matrix.linfty_norm() <<std::endl;           
-    pcout << "   L_INF norm of the electron matrix:  "<<electron_matrix.linfty_norm() <<std::endl;
-
+  /*  
+    pcout << "   (assemble step) L_INF norm of the hole matrix:   "<<hole_matrix.linfty_norm() <<std::endl;           
+    pcout << "   (assemble step) L_INF norm of the electron matrix:  "<<electron_matrix.linfty_norm() <<std::endl;
+    
     pcout << "   L_INF norm of the hole RHS:  " << rhs_hole_density.linfty_norm() << std::endl;        
     pcout << "   L_INF norm of the electron RHS:  " << rhs_electron_density.linfty_norm() << std::endl;
     */
@@ -695,9 +743,9 @@ void DriftDiffusion<dim>::apply_drift_diffusion_boundary_conditions()
   
   electron_density = temp_elec;
   hole_density = temp_hole;
-  /*
-  pcout << "   L_INF norm of the hole matrix:   "<<hole_matrix.linfty_norm() <<std::endl;           
-  pcout << "   L_INF norm of the electron matrix:  "<<electron_matrix.linfty_norm() <<std::endl;
+ /* 
+  pcout << "   (apply bcs) L_INF norm of the hole matrix:   "<<hole_matrix.linfty_norm() <<std::endl;           
+  pcout << "   (apply bcs) L_INF norm of the electron matrix:  "<<electron_matrix.linfty_norm() <<std::endl;
 
   pcout << "   L_INF norm of the hole RHS:  " << rhs_hole_density.linfty_norm() << std::endl;        
   pcout << "   L_INF norm of the electron RHS:  " << rhs_electron_density.linfty_norm() << std::endl;

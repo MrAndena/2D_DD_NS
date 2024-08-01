@@ -78,6 +78,7 @@ namespace {
       void assemble_mass_matrix();
       void assemble_nonlinear_poisson();
       void assemble_drift_diffusion_matrix();
+      
       void compute_densities();
       void cycle_newton_poisson(const unsigned int max_iter_newton, const double toll_newton);
 
