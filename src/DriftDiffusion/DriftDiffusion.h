@@ -102,6 +102,7 @@ namespace {
       
       //Poisson Problem AffineConstraints
       AffineConstraints<double> zero_constraints;
+   
       
       //Drift Diffusion AffineConstraints
       AffineConstraints<double> density_constraints;

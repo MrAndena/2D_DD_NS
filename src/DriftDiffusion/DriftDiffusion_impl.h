@@ -46,7 +46,7 @@ namespace {
     
     pcout<< "   NEWTON POISSON" <<std::endl;
     cycle_newton_poisson(max_newton_iterations, tol_newton);
-    
+
     pcout<< "   Assemble drift diffusion matrix" <<std::endl;
     assemble_drift_diffusion_matrix();
     
@@ -56,25 +56,25 @@ namespace {
     pcout<< "   Solve drift diffusion"<<std::endl;
     solve_drift_diffusion();
     
-    /*stampare matrici
+    //stampa matrici
+    
     if(cycle_drift_diffusion==1 ){
-      std::ofstream outFile("cycle_1_hole_matrix.dat");
+      std::ofstream outFile("our_toy_hole_1.dat");
       hole_matrix.print(outFile);
       outFile.close();
-      std::ofstream outFile2("cycle_1_electron_matrix.dat");
+      std::ofstream outFile2("our_toy_elec_1.dat");
       electron_matrix.print(outFile2);
       outFile.close();
     }
 
-    if(cycle_drift_diffusion==2){
-      std::ofstream outFile("cycle_2_hole_matrix.dat");
+    if(cycle_drift_diffusion==1 ){
+      std::ofstream outFile("our_toy_hole_2.dat");
       hole_matrix.print(outFile);
       outFile.close();
-      std::ofstream outFile2("cycle_2_electron_matrix.dat");
+      std::ofstream outFile2("our_toy_elec_2.dat");
       electron_matrix.print(outFile2);
       outFile.close();
     }
-*/
 
 
     
@@ -168,6 +168,8 @@ namespace {
     //VectorTools::interpolate_boundary_values(dof_handler, 1, Functions::ZeroFunction<dim>(), zero_constraints); 
     //VectorTools::interpolate_boundary_values(dof_handler, 2, Functions::ZeroFunction<dim>(), zero_constraints); 
     zero_constraints.close(); 
+
+
 
     //DENSITY CONSTRAINTS FOR DRIFT DIFFUSION SYSTEM
     density_constraints.clear();
@@ -498,6 +500,8 @@ namespace {
 
     temp = current_solution;
     temp.add(1.0, newton_update);
+
+
     current_solution = temp;
 
     // pcout << "L2 norm of the current solution: " << current_solution.l2_norm() << std::endl;
@@ -589,13 +593,13 @@ template <int dim>
 void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
 {
 
-
   //initialization
 	rhs_electron_density = 0;
 	rhs_hole_density = 0;
   hole_matrix = 0;
 	electron_matrix = 0;
 
+  
   const unsigned int vertices_per_cell = 4; // 4 number of dofs per cell, 4 is dofs per cell
 
   std::vector<types::global_dof_index> local_dof_indices(vertices_per_cell);
@@ -666,7 +670,7 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
               B_local_dof_indices[0] = local_dof_indices[0];
               B_local_dof_indices[1] = local_dof_indices[1];
               B_local_dof_indices[2] = local_dof_indices[3];
-
+          
             } else { // l_beta is the longest diagonal: split by alpha
               const double alpha14 = (u4 - u1);
               const double neg_alpha14 = - (u4 - u1);
@@ -683,7 +687,7 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
               A_local_dof_indices[0] = local_dof_indices[1];
               A_local_dof_indices[1] = local_dof_indices[3];
               A_local_dof_indices[2] = local_dof_indices[2];
-              
+            
               B_local_dof_indices[0] = local_dof_indices[2];
               B_local_dof_indices[1] = local_dof_indices[0];
               B_local_dof_indices[2] = local_dof_indices[1];
@@ -705,13 +709,13 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
     
     rhs_hole_density.compress(VectorOperation::add);
     rhs_electron_density.compress(VectorOperation::add);
-  /*  
+  /*   
     pcout << "   (assemble step) L_INF norm of the hole matrix:   "<<hole_matrix.linfty_norm() <<std::endl;           
     pcout << "   (assemble step) L_INF norm of the electron matrix:  "<<electron_matrix.linfty_norm() <<std::endl;
     
     pcout << "   L_INF norm of the hole RHS:  " << rhs_hole_density.linfty_norm() << std::endl;        
     pcout << "   L_INF norm of the electron RHS:  " << rhs_electron_density.linfty_norm() << std::endl;
-    */
+   */
     //pcout << " End of assembling drift diffusion matrix"<< std::endl<<std::endl;
 
 }
