@@ -57,7 +57,7 @@ namespace {
     solve_drift_diffusion();
     
     //stampa matrici
-    
+    /*
     if(cycle_drift_diffusion==1 ){
       std::ofstream outFile("our_toy_hole_1.dat");
       hole_matrix.print(outFile);
@@ -75,7 +75,7 @@ namespace {
       electron_matrix.print(outFile2);
       outFile.close();
     }
-
+*/
 
     
     pcout<< "   Update error for convergence"<<std::endl;
@@ -219,6 +219,7 @@ namespace {
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
+  //CONSTRUCTOR
   template <int dim>
   DriftDiffusion<dim>::DriftDiffusion(parallel::distributed::Triangulation<dim> &tria)
     : mpi_communicator(MPI_COMM_WORLD)
@@ -279,6 +280,8 @@ namespace {
   old_hole_density = temp;
   */
   //pcout << "   End of initialization_current_solution "<< std::endl;
+
+  //initialization with full interpolation of the right bcs values
   PETScWrappers::MPI::Vector temp_pot(locally_owned_dofs, mpi_communicator);
   PETScWrappers::MPI::Vector temp_hole(locally_owned_dofs, mpi_communicator);
   PETScWrappers::MPI::Vector temp_elec(locally_owned_dofs, mpi_communicator);
@@ -406,7 +409,7 @@ namespace {
   void DriftDiffusion<dim>::assemble_nonlinear_poisson()
   {
 
-    //BUILDING SYSTEM MATRIX
+    //BUILDING POISSON SYSTEM MATRIX (for newton)
     poisson_system_matrix = 0;
     density_matrix = 0;
   
@@ -514,6 +517,7 @@ namespace {
   void DriftDiffusion<dim>:: compute_densities(){   
   
     // in this function we compute the densities of electrons and holes starting from current solution that is the potential
+    // this function is used inside the newton cycle
     
     //update the densities
     PETScWrappers::MPI::Vector old_temp_elec(locally_owned_dofs, mpi_communicator);
