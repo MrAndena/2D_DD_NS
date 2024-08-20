@@ -488,7 +488,7 @@ namespace {
 
     solverMUMPS.solve(poisson_system_matrix, newton_update, poisson_system_rhs);
 
-    //CLAMPING  
+    //Clamping 
     for (auto iter = locally_owned_dofs.begin(); iter != locally_owned_dofs.end(); ++iter){ 
   
       if (newton_update[*iter] < -V_TH) { newton_update[*iter] = -V_TH; }
@@ -497,7 +497,8 @@ namespace {
     }
 
     newton_update.compress(VectorOperation::insert); 
-  
+    
+    //Update current solution
     PETScWrappers::MPI::Vector temp;
     temp.reinit(locally_owned_dofs, mpi_communicator);
 
