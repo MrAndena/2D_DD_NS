@@ -619,7 +619,7 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
 
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
-      if (cell->is_locally_owned()){
+      if (cell->is_locally_owned()){ // tieni calcolo coordinate e potenziale da 644 puntini 
 
         A = 0;
         B = 0;
@@ -628,7 +628,7 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
 
         cell_rhs = 0;
         
-        cell->get_dof_indices(local_dof_indices);
+        cell->get_dof_indices(local_dof_indices); //controlla valori
 
         // Lexicographic ordering
         const Point<dim> v1 = cell->vertex(2); // top left
