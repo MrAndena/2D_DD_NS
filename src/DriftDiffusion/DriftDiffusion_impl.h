@@ -616,7 +616,9 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
 
   std::vector<types::global_dof_index> A_local_dof_indices(t_size);
   std::vector<types::global_dof_index> B_local_dof_indices(t_size);
-
+  
+  int cell_index = 0;
+  std::cout << "#cell\t\t#nvertex(local)\t\t#nvertex(global)\t\tcoords\n"
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
       if (cell->is_locally_owned()){ // tieni calcolo coordinate e potenziale da 644 puntini 
@@ -635,6 +637,11 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
         const Point<dim> v2 = cell->vertex(3); // top right
         const Point<dim> v3 = cell->vertex(0); // bottom left
         const Point<dim> v4 = cell->vertex(1); // bottom right
+        
+        std::cout << cell_index   << "\t\t" << 0 << "\t\t" << local_dof_indices[0] << "\t\t" << v1[0] << ", " << v1[1] << "\n";
+        std::cout << cell_index   << "\t\t" << 1 << "\t\t" << local_dof_indices[1] << "\t\t" << v2[0] << ", " << v2[1] << "\n";
+        std::cout << cell_index   << "\t\t" << 2 << "\t\t" << local_dof_indices[2] << "\t\t" << v3[0] << ", " << v3[1] << "\n";
+        std::cout << cell_index++ << "\t\t" << 3 << "\t\t" << local_dof_indices[3] << "\t\t" << v4[0] << ", " << v4[1] << "\n";
 
         const double u1 = -current_solution[local_dof_indices[2]]/V_TH;
         const double u2 = -current_solution[local_dof_indices[3]]/V_TH;
