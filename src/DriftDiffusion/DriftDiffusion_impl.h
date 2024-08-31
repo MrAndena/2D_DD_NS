@@ -226,6 +226,7 @@ namespace {
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
+  //CONSTRUCTOR
   template <int dim>
   DriftDiffusion<dim>::DriftDiffusion(parallel::distributed::Triangulation<dim> &tria)
     : mpi_communicator(MPI_COMM_WORLD)
@@ -286,6 +287,8 @@ namespace {
   old_hole_density = temp;
   */
   //pcout << "   End of initialization_current_solution "<< std::endl;
+
+  //initialization with full interpolation of the right bcs values
   PETScWrappers::MPI::Vector temp_pot(locally_owned_dofs, mpi_communicator);
   PETScWrappers::MPI::Vector temp_hole(locally_owned_dofs, mpi_communicator);
   PETScWrappers::MPI::Vector temp_elec(locally_owned_dofs, mpi_communicator);
@@ -413,7 +416,7 @@ namespace {
   void DriftDiffusion<dim>::assemble_nonlinear_poisson()
   {
 
-    //BUILDING SYSTEM MATRIX
+    //BUILDING POISSON SYSTEM MATRIX (for newton)
     poisson_system_matrix = 0;
     density_matrix = 0;
   
@@ -492,7 +495,7 @@ namespace {
 
     solverMUMPS.solve(poisson_system_matrix, newton_update, poisson_system_rhs);
 
-    //CLAMPING  
+    //Clamping 
     for (auto iter = locally_owned_dofs.begin(); iter != locally_owned_dofs.end(); ++iter){ 
   
       if (newton_update[*iter] < -V_TH) { newton_update[*iter] = -V_TH; }
@@ -501,7 +504,8 @@ namespace {
     }
 
     newton_update.compress(VectorOperation::insert); 
-  
+    
+    //Update current solution
     PETScWrappers::MPI::Vector temp;
     temp.reinit(locally_owned_dofs, mpi_communicator);
 
@@ -521,6 +525,7 @@ namespace {
   void DriftDiffusion<dim>:: compute_densities(){   
   
     // in this function we compute the densities of electrons and holes starting from current solution that is the potential
+    // this function is used inside the newton cycle
     
     //update the densities
     PETScWrappers::MPI::Vector old_temp_elec(locally_owned_dofs, mpi_communicator);
@@ -619,12 +624,13 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
   std::vector<types::global_dof_index> A_local_dof_indices(t_size);
   std::vector<types::global_dof_index> B_local_dof_indices(t_size);
 
+
   int cell_index = 0;
   std::cout << "#cell\t\t#nvertex(local)\t\t#nvertex(global)\t\tcoords\n";
 
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
-      if (cell->is_locally_owned()){
+      if (cell->is_locally_owned()){ // tieni calcolo coordinate e potenziale da 644 puntini 
 
         A = 0;
         B = 0;
@@ -633,13 +639,18 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
 
         cell_rhs = 0;
         
-        cell->get_dof_indices(local_dof_indices);
+        cell->get_dof_indices(local_dof_indices); //controlla valori
 
         // Lexicographic ordering
         const Point<dim> v1 = cell->vertex(2); // top left
         const Point<dim> v2 = cell->vertex(3); // top right
         const Point<dim> v3 = cell->vertex(0); // bottom left
         const Point<dim> v4 = cell->vertex(1); // bottom right
+        
+        std::cout << cell_index   << "\t\t" << 0 << "\t\t" << local_dof_indices[0] << "\t\t" << v1[0] << ", " << v1[1] << "\n";
+        std::cout << cell_index   << "\t\t" << 1 << "\t\t" << local_dof_indices[1] << "\t\t" << v2[0] << ", " << v2[1] << "\n";
+        std::cout << cell_index   << "\t\t" << 2 << "\t\t" << local_dof_indices[2] << "\t\t" << v3[0] << ", " << v3[1] << "\n";
+        std::cout << cell_index++ << "\t\t" << 3 << "\t\t" << local_dof_indices[3] << "\t\t" << v4[0] << ", " << v4[1] << "\n";
 
         std::cout << cell_index   << "\t\t   " << 0 << "\t\t   " << local_dof_indices[0] << "\t\t   " << v1[0] << ", " << v1[1] << "\n";
         std::cout << cell_index   << "\t\t   " << 1 << "\t\t   " << local_dof_indices[1] << "\t\t   " << v2[0] << ", " << v2[1] << "\n";

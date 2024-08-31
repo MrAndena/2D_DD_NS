@@ -8,7 +8,9 @@
 template <int dim>
 void create_triangulation(parallel::distributed::Triangulation<dim> &tria)
 {
+
   const std::string filename = "../../../Meshes/small_small_mesh.msh"; //remember: you run from build directory
+  // const std::string filename = "../../../Meshes/Structured_Square.msh"; //remember: you run from build directory
 
   ConditionalOStream pcout(std::cout, (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0));
 
