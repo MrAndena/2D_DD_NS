@@ -35,4 +35,5 @@
 .vscode/
 
 # Ignore build directory
-.build/
+src/DriftDiffusion/build/
+src/nlpoisson/build/
