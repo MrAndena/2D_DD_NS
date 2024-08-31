@@ -46,7 +46,7 @@ namespace {
       temp00=newton_update;
 
       VectorTools::interpolate_boundary_values(mapping, dof_handler,1, Functions::ZeroFunction<dim>(), emitter_boundary_values);
-      MatrixTools::apply_boundary_values(emitter_boundary_values, system_matrix, temp00, system_rhs);
+      MatrixTools::apply_boundary_values(emitter_boundary_values, system_matrix, temp00, system_rhs);    //boundary values vanno applicati così se le matrici non sono assemblate attraverso la weak form
    
       VectorTools::interpolate_boundary_values(mapping, dof_handler,2, Functions::ZeroFunction<dim>(), collector_boundary_values);
       MatrixTools::apply_boundary_values(collector_boundary_values, system_matrix, temp00, system_rhs);
@@ -58,14 +58,27 @@ namespace {
       pcout << "    Solve System ... ";
       solve(); // dentro c'e anche il clamping
       pcout << " done! "  << std::endl;
-      
+
       increment_norm = newton_update.l2_norm();
       pcout << "    Update Increment: " << increment_norm << std::endl << std::endl;
 
       pcout << "    OUTPUT RESULT "<< std::endl;
       output_results(counter);
 
-      
+      //stampa matrici
+    
+    // if(counter==1 ){
+    //   std::ofstream outFile("NL_Poisson_1.dat");
+    //   system_matrix.print(outFile);
+    //   outFile.close();
+    // }
+
+    // if(counter==2 ){
+    //   std::ofstream outFile("NL_Poisson_2.dat");
+    //   system_matrix.print(outFile);
+    //   outFile.close();
+    // }
+
     }
   
 
@@ -253,16 +266,16 @@ namespace {
     unsigned int q_point = 0, idof = 0, jdof = 0;
     for (const auto &cell : dof_handler.active_cell_iterators()){
       if (cell->is_locally_owned()){
-	cell_matrix = 0.;
+	      cell_matrix = 0.;
         fe_values.reinit(cell);
 	
         for (q_point = 0; q_point < n_q_points; ++q_point) {
-	  for (idof = 0; idof < dofs_per_cell; ++idof) {
-	    for (jdof = 0; jdof < dofs_per_cell; ++jdof)
-	      cell_matrix(idof, jdof) += fe_values.shape_grad(idof, q_point) *
-		fe_values.shape_grad(jdof, q_point) * fe_values.JxW(q_point);
-	  }
-	}
+	        for (idof = 0; idof < dofs_per_cell; ++idof) {
+	          for (jdof = 0; jdof < dofs_per_cell; ++jdof)
+	            cell_matrix(idof, jdof) += fe_values.shape_grad(idof, q_point) *
+		          fe_values.shape_grad(jdof, q_point) * fe_values.JxW(q_point);
+	        }
+	      }
 
         cell->get_dof_indices(local_dof_indices);
         zero_constraints.distribute_local_to_global(cell_matrix,
@@ -301,25 +314,24 @@ namespace {
 
     unsigned int q_point = 0, idof = 0, jdof = 0;
     for (const auto &cell : dof_handler.active_cell_iterators()){
-      if (cell->is_locally_owned())
-	{
-	  cell_matrix = 0.;
+      if (cell->is_locally_owned()){
+	      cell_matrix = 0.;
 
-	  fe_values.reinit(cell);
+	      fe_values.reinit(cell);
 
-	  for (q_point = 0; q_point < n_q_points; ++q_point) {
-	    for (idof = 0; idof < dofs_per_cell; ++idof) {
-	      for (jdof = 0; jdof < dofs_per_cell; ++jdof)
-		cell_matrix(idof, jdof) += fe_values.shape_value(idof, q_point) *
-		  fe_values.shape_value(jdof, q_point) * fe_values.JxW(q_point);
-	    }
-	  }
+	      for (q_point = 0; q_point < n_q_points; ++q_point) {
+	        for (idof = 0; idof < dofs_per_cell; ++idof) {
+	          for (jdof = 0; jdof < dofs_per_cell; ++jdof)
+		          cell_matrix(idof, jdof) += fe_values.shape_value(idof, q_point) *
+		          fe_values.shape_value(jdof, q_point) * fe_values.JxW(q_point);
+	        }
+	      }
 
-	  cell->get_dof_indices(local_dof_indices);
-	  zero_constraints.distribute_local_to_global(cell_matrix,
+	      cell->get_dof_indices(local_dof_indices);
+	      zero_constraints.distribute_local_to_global(cell_matrix,
 						      local_dof_indices,
 						      mass_matrix );
-	}
+	    }
     }
 
     mass_matrix.compress(VectorOperation::add);
@@ -537,6 +549,62 @@ namespace {
     data_out.add_data_vector(subdomain, "subdomain");
     data_out.build_patches();
     data_out.write_vtu_with_pvtu_record("./", "solution", cycle, mpi_communicator, 2, 1);
+
+
+    // Recupera il rank del processo attuale e la dimensione totale del comunicatore MPI
+    const unsigned int my_rank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
+    const unsigned int n_procs = Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD);
+
+    // Ottieni gli indici degli elementi posseduti localmente da questo processo
+    const IndexSet locally_owned = current_solution.locally_owned_elements();
+
+    // Loop attraverso tutti i processi MPI per garantire che l'output sia coordinato
+    for (unsigned int rank = 0; rank < n_procs; ++rank)
+    {
+        // Sincronizzazione tra i processi MPI
+        if (rank == my_rank)
+        {
+            std::cout << "Process " << my_rank << " vector values:" << std::endl;
+
+            // Stampa i valori del vettore posseduti localmente
+            for (auto index : locally_owned)
+            {
+                std::cout << "  Index " << index << ": " << current_solution[index] << std::endl;
+            }
+
+            std::cout << std::flush;  // Forza la stampa immediata dei valori
+        }
+
+        // Sincronizzazione tra i processi MPI per garantire l'ordine
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+
+
+
+  const unsigned int vertices_per_cell = 4; // 4 number of dofs per cell, 4 is dofs per cell
+  std::vector<types::global_dof_index> local_dof_indices(vertices_per_cell);
+  int cell_index = 0;
+  std::cout << "#cell\t\t#nvertex(local)\t\t#nvertex(global)\t\tcoords\n";
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+      if (cell->is_locally_owned()){ // tieni calcolo coordinate e potenziale da 644 puntini 
+        
+        cell->get_dof_indices(local_dof_indices); //controlla valori
+
+        // Lexicographic ordering
+        const Point<dim> v1 = cell->vertex(2); // top left
+        const Point<dim> v2 = cell->vertex(3); // top right
+        const Point<dim> v3 = cell->vertex(0); // bottom left
+        const Point<dim> v4 = cell->vertex(1); // bottom right
+        
+        std::cout << cell_index   << "\t\t" << 0 << "\t\t" << local_dof_indices[0] << "\t\t" << v1[0] << ", " << v1[1] << "\n";
+        std::cout << cell_index   << "\t\t" << 1 << "\t\t" << local_dof_indices[1] << "\t\t" << v2[0] << ", " << v2[1] << "\n";
+        std::cout << cell_index   << "\t\t" << 2 << "\t\t" << local_dof_indices[2] << "\t\t" << v3[0] << ", " << v3[1] << "\n";
+        std::cout << cell_index++ << "\t\t" << 3 << "\t\t" << local_dof_indices[3] << "\t\t" << v4[0] << ", " << v4[1] << "\n";
+
+      }
+
+    }
 
     //pcout << " End of output_results"<< std::endl<<std::endl;
 
