@@ -237,6 +237,20 @@ namespace {
     hole_constraints.close();
 
 
+    // tutto nuovo @
+    elec_constraints.clear();
+    elec_constraints.reinit(locally_relevant_dofs);
+    VectorTools::interpolate_boundary_values(dof_handler, 1, Functions::ConstantFunction<dim>(N1), elec_constraints); 
+    VectorTools::interpolate_boundary_values(dof_handler, 2, Functions::ConstantFunction<dim>(N2), elec_constraints); 
+    elec_constraints.close();
+
+    hole_constraints.clear();
+    hole_constraints.reinit(locally_relevant_dofs);
+    VectorTools::interpolate_boundary_values(dof_handler, 1, Functions::ConstantFunction<dim>(P1), hole_constraints); 
+    VectorTools::interpolate_boundary_values(dof_handler, 2, Functions::ConstantFunction<dim>(P2), hole_constraints); 
+    hole_constraints.close();
+
+
     // DYNAMIC SPARSITY PATTERN AND POISSON MATRICES 
     DynamicSparsityPattern dsp(locally_relevant_dofs);
     DoFTools::make_sparsity_pattern(dof_handler, dsp, zero_constraints, false); 
@@ -264,13 +278,35 @@ namespace {
     DynamicSparsityPattern dsp_dd(locally_relevant_dofs);
     DoFTools::make_sparsity_pattern(dof_handler, dsp_dd, density_constraints, false);  
 
-    SparsityTools::distribute_sparsity_pattern(dsp_dd,
-                                              dof_handler.locally_owned_dofs(),
-                                              mpi_communicator,
-                                              locally_relevant_dofs);
+    // SparsityTools::distribute_sparsity_pattern(dsp_dd,
+    //                                           dof_handler.locally_owned_dofs(),
+    //                                           mpi_communicator,
+    //                                           locally_relevant_dofs);
+
+    // hole_matrix.clear(); //store holes density matrix
+    // hole_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp_dd,  mpi_communicator);
+
+    // electron_matrix.clear();// store electron density matrix
+    // electron_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp_dd,  mpi_communicator);
+
+    // //pcout << "   End of setup_system "<< std::endl<<std::endl;
+
+    DynamicSparsityPattern elec_dsp(locally_relevant_dofs);
+    DoFTools::make_sparsity_pattern(dof_handler, elec_dsp, elec_constraints, false);
+    SparsityTools::distribute_sparsity_pattern(elec_dsp,
+                                            dof_handler.locally_owned_dofs(),
+                                            mpi_communicator,
+                                            locally_relevant_dofs);
+
+    DynamicSparsityPattern hole_dsp(locally_relevant_dofs);
+    DoFTools::make_sparsity_pattern(dof_handler, hole_dsp, hole_constraints, false);
+    SparsityTools::distribute_sparsity_pattern(hole_dsp,
+                                            dof_handler.locally_owned_dofs(),
+                                            mpi_communicator,
+                                            locally_relevant_dofs);
 
     hole_matrix.clear(); //store holes density matrix
-    hole_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp_dd,  mpi_communicator);
+    hole_matrix.reinit(locally_owned_dofs, locally_owned_dofs, hole_dsp,  mpi_communicator);
 
     electron_matrix.clear();// store electron density matrix
     electron_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp_dd,  mpi_communicator);
@@ -834,7 +870,7 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
 
 
   int cell_index = 0;
-  std::cout << "#cell\t\t#nvertex(local)\t\t#nvertex(global)\t\tcoords\n";
+  // std::cout << "#cell\t\t    #nvertex(local)   \t\t    #nvertex(global)\t\t    coords\n";
 
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
@@ -941,6 +977,7 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
     rhs_electron_density.compress(VectorOperation::add);
    
 }
+
 //-----------------------------------------------------------------------------------------------------------------------------------------------------
 template <int dim>
 void DriftDiffusion<dim>::apply_drift_diffusion_boundary_conditions() 
