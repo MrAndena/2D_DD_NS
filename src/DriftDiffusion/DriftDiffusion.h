@@ -105,7 +105,10 @@ namespace {
    
       
       //Drift Diffusion AffineConstraints
-      AffineConstraints<double> density_constraints;
+      //AffineConstraints<double> density_constraints;
+      AffineConstraints<double> elec_constraints; //@
+      AffineConstraints<double> hole_constraints; //@
+
       
       //Poisson Problem Matrices
       PETScWrappers::MPI::SparseMatrix poisson_system_matrix;
@@ -116,6 +119,9 @@ namespace {
       //Drift Diffusion Matrices
       PETScWrappers::MPI::SparseMatrix electron_matrix;
       PETScWrappers::MPI::SparseMatrix hole_matrix;
+
+
+
       
       //Poisson Problem Vectors
       PETScWrappers::MPI::Vector       current_solution;  // potential

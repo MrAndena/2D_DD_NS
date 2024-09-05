@@ -47,15 +47,62 @@ namespace {
     pcout<< "   NEWTON POISSON" <<std::endl;
     cycle_newton_poisson(max_newton_iterations, tol_newton);
 
+
+
     pcout<< "   Assemble drift diffusion matrix" <<std::endl;
     assemble_drift_diffusion_matrix();
+    /*
+    if(cycle_drift_diffusion==1){
+      std::ofstream outFile("nuove_bc_assemble.dat");
+      hole_matrix.print(outFile);
+      outFile.close();
+    }*/
+/*
+    PETScWrappers::MPI::Vector temp(locally_owned_dofs, mpi_communicator);
+    temp = hole_density;
     
-    pcout<<"   Apply BCs"<<std::endl;
-    apply_drift_diffusion_boundary_conditions();
+    for (unsigned int i = temp.local_range().first; i < temp.local_range().second; ++i){ 
 
-    pcout<< "   Solve drift diffusion"<<std::endl;
-    solve_drift_diffusion();
+    std::cout<< temp[i]<<std::endl;
+ 
+
+    }*/
+
+
     
+ 
+    //pcout<<"   Apply BCs"<<std::endl;
+    //apply_drift_diffusion_boundary_conditions();
+
+ 
+    
+
+
+
+
+  pcout<< "   Solve drift diffusion"<<std::endl;
+  solve_drift_diffusion();
+/*
+    
+    temp = hole_density;
+    
+    for (unsigned int i = temp.local_range().first; i < temp.local_range().second; ++i){ 
+
+    std::cout<< temp[i]<<std::endl;
+ 
+
+    }*/
+
+      
+/*
+       for (unsigned int i = rhs_hole_density.local_range().first; i < rhs_hole_density.local_range().second; ++i){ 
+
+    std::cout<< rhs_hole_density[i]<<std::endl;
+ 
+
+    } */
+
+ 
     //stampa matrici
     
     // if(cycle_drift_diffusion==1 ){
@@ -75,15 +122,7 @@ namespace {
     //   electron_matrix.print(outFile2);
     //   outFile.close();
     // }
-
-    if(cycle_drift_diffusion==1){
-      std::ofstream outFile("our_small_small_hole.dat");
-      hole_matrix.print(outFile);
-      outFile.close();
-      std::ofstream outFile2("our_small_small_elec.dat");
-      electron_matrix.print(outFile2);
-      outFile.close();
-    }
+    
 
 
     
@@ -177,11 +216,25 @@ namespace {
     zero_constraints.close(); 
 
 
-
+    
     //DENSITY CONSTRAINTS FOR DRIFT DIFFUSION SYSTEM
-    density_constraints.clear();
-    density_constraints.reinit(locally_relevant_dofs);   
-    density_constraints.close();
+   
+   // density_constraints.clear();
+    //density_constraints.reinit(locally_relevant_dofs);   
+    //density_constraints.close();
+    
+    // tutto nuovo @
+    elec_constraints.clear();
+    elec_constraints.reinit(locally_relevant_dofs);
+    VectorTools::interpolate_boundary_values(dof_handler, 1, Functions::ConstantFunction<dim>(N1), elec_constraints); 
+    VectorTools::interpolate_boundary_values(dof_handler, 2, Functions::ConstantFunction<dim>(N2), elec_constraints); 
+    elec_constraints.close();
+
+    hole_constraints.clear();
+    hole_constraints.reinit(locally_relevant_dofs);
+    VectorTools::interpolate_boundary_values(dof_handler, 1, Functions::ConstantFunction<dim>(P1), hole_constraints); 
+    VectorTools::interpolate_boundary_values(dof_handler, 2, Functions::ConstantFunction<dim>(P2), hole_constraints); 
+    hole_constraints.close();
 
 
     // DYNAMIC SPARSITY PATTERN AND POISSON MATRICES 
@@ -207,6 +260,7 @@ namespace {
     
 
     // DYNAMIC SPARSITY PATTERN AND DRIFT DIFFUSION MATRICES
+    /*
     DynamicSparsityPattern dsp_dd(locally_relevant_dofs);
     DoFTools::make_sparsity_pattern(dof_handler, dsp_dd, density_constraints, false);  
 
@@ -220,9 +274,30 @@ namespace {
 
     electron_matrix.clear();// store electron density matrix
     electron_matrix.reinit(locally_owned_dofs, locally_owned_dofs, dsp_dd,  mpi_communicator);
-
+*/
     //pcout << "   End of setup_system "<< std::endl<<std::endl;
 
+    DynamicSparsityPattern elec_dsp(locally_relevant_dofs);
+    DoFTools::make_sparsity_pattern(dof_handler, elec_dsp, elec_constraints, false);
+    SparsityTools::distribute_sparsity_pattern(elec_dsp,
+                                            dof_handler.locally_owned_dofs(),
+                                            mpi_communicator,
+                                            locally_relevant_dofs);
+
+    DynamicSparsityPattern hole_dsp(locally_relevant_dofs);
+    DoFTools::make_sparsity_pattern(dof_handler, hole_dsp, hole_constraints, false);
+    SparsityTools::distribute_sparsity_pattern(hole_dsp,
+                                            dof_handler.locally_owned_dofs(),
+                                            mpi_communicator,
+                                            locally_relevant_dofs);
+
+    hole_matrix.clear(); //store holes density matrix
+    hole_matrix.reinit(locally_owned_dofs, locally_owned_dofs, hole_dsp,  mpi_communicator);
+
+    electron_matrix.clear();// store electron density matrix
+    electron_matrix.reinit(locally_owned_dofs, locally_owned_dofs, elec_dsp,  mpi_communicator);                                     
+
+    
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
@@ -466,7 +541,8 @@ namespace {
     temp_1 = current_solution;                    // temp_1 = phi 
     laplace_matrix.vmult(temp_2, temp_1);         // temp_2 = A*phi
     poisson_system_rhs.add(- eps_r * eps_0, temp_2);       //SYS_RHS = SYS_RHS - eps*A*phi
-    
+
+
 
     //pcout << "   The L_INF norm of the poisson system RHS is: "<<poisson_system_rhs.linfty_norm() <<std::endl;
     //pcout << "   The L2 norm of the poisson system RHS is: " << poisson_system_rhs.l2_norm() << std::endl;
@@ -600,6 +676,138 @@ void DriftDiffusion<dim>::cycle_newton_poisson(const unsigned int max_iter_newto
 
 }
 //-----------------------------------------------------------------------------------------------------------------------------------------------------------
+/*
+template <int dim>
+void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
+{
+
+  //initialization
+	rhs_electron_density = 0;
+	rhs_hole_density = 0;
+  hole_matrix = 0;
+	electron_matrix = 0;
+
+  
+  const unsigned int vertices_per_cell = 4; // 4 number of dofs per cell, 4 is dofs per cell
+
+  std::vector<types::global_dof_index> local_dof_indices(vertices_per_cell);
+
+  const unsigned int t_size = 3;
+
+  Vector<double> cell_rhs(t_size);
+  FullMatrix<double> A(t_size,t_size), B(t_size,t_size), neg_A(t_size,t_size), neg_B(t_size,t_size);
+
+  std::vector<types::global_dof_index> A_local_dof_indices(t_size);
+  std::vector<types::global_dof_index> B_local_dof_indices(t_size);
+
+
+  int cell_index = 0;
+  std::cout << "#cell\t\t#nvertex(local)\t\t#nvertex(global)\t\tcoords\t\tvalues\n"<<std::endl;
+
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+      if (cell->is_locally_owned()){ // tieni calcolo coordinate e potenziale da 644 puntini 
+
+        A = 0;
+        B = 0;
+        neg_A = 0;
+        neg_B = 0;
+
+        cell_rhs = 0;
+        
+        cell->get_dof_indices(local_dof_indices); //controlla valori
+
+        // Lexicographic ordering
+        const Point<dim> v1 = cell->vertex(0); // "top left"      2            // in realtà top right
+        const Point<dim> v2 = cell->vertex(1); // "top right"     3            // in realtà bottom right
+        const Point<dim> v3 = cell->vertex(2); // "bottom left"   0           // in realtà top left
+        const Point<dim> v4 = cell->vertex(3); // "bottom right"  1          // in realtà bottom left
+        
+        std::cout << cell_index   << "\t\t   " << 0 << "\t\t   " << local_dof_indices[0] << "\t\t   " << v1[0] << ", " << v1[1] <<"\t\t   "<<current_solution[local_dof_indices[0]]<< "\n";
+        std::cout << cell_index   << "\t\t   " << 1 << "\t\t   " << local_dof_indices[1] << "\t\t   " << v2[0] << ", " << v2[1] <<"\t\t   "<<current_solution[local_dof_indices[1]]<< "\n";
+        std::cout << cell_index   << "\t\t   " << 2 << "\t\t   " << local_dof_indices[2] << "\t\t   " << v3[0] << ", " << v3[1] <<"\t\t   "<<current_solution[local_dof_indices[2]]<< "\n";
+        std::cout << cell_index++ << "\t\t   " << 3 << "\t\t   " << local_dof_indices[3] << "\t\t   " << v4[0] << ", " << v4[1] <<"\t\t   "<<current_solution[local_dof_indices[3]]<< "\n";
+
+        const double u1 = -current_solution[local_dof_indices[0]]/V_TH;
+        const double u2 = -current_solution[local_dof_indices[1]]/V_TH;
+        const double u3 = -current_solution[local_dof_indices[2]]/V_TH;
+        const double u4 = -current_solution[local_dof_indices[3]]/V_TH;
+
+        const double l_alpha = side_length(v1,v4);
+        const double l_beta = side_length(v2,v3);
+        
+        const double alpha21 = (u1 - u2);
+        const double alpha42 = (u2 - u4);
+        const double alpha34 = (u4 - u3);
+        const double alpha13 = (u3 - u1);
+        
+        const double neg_alpha21 =  - (u1 - u2);
+        const double neg_alpha42 =  - (u2 - u4);
+        const double neg_alpha34 = - (u4 - u3);
+        const double neg_alpha13 = - (u3 - u1);  
+
+        if (l_alpha >= l_beta) { // l_alpha is the longest diagonal: split by beta
+              const double alpha23 =  (u3 - u2);
+              const double neg_alpha23 = - (u3 - u2);
+              //cout << "Alpha 23 is: " << alpha23 << endl;
+              
+              // Triangle A:
+              A= compute_triangle_matrix(v2,v1,v3, alpha21, alpha13, -alpha23, Dp);
+              neg_A= compute_triangle_matrix(v2,v1,v3, neg_alpha21, neg_alpha13, -neg_alpha23, Dn);
+              
+              // Triangle B:
+              B = compute_triangle_matrix(v3,v4,v2, alpha34, alpha42, alpha23, Dp);
+              neg_B = compute_triangle_matrix(v3,v4,v2, neg_alpha34, neg_alpha42, neg_alpha23, Dn);
+              
+              // Matrix assemble
+              A_local_dof_indices[0] = local_dof_indices[1];
+              A_local_dof_indices[1] = local_dof_indices[0];
+              A_local_dof_indices[2] = local_dof_indices[2];
+              
+              B_local_dof_indices[0] = local_dof_indices[2];
+              B_local_dof_indices[1] = local_dof_indices[3];
+              B_local_dof_indices[2] = local_dof_indices[1];
+          
+            } else { // l_beta is the longest diagonal: split by alpha
+              const double alpha14 = (u4 - u1);
+              const double neg_alpha14 = - (u4 - u1);
+              //cout << "Alpha 14 is: " << alpha14 << endl;
+              
+              // Triangle A:
+              A = compute_triangle_matrix(v4,v2,v1, alpha42, alpha21, alpha14, Dp);
+              neg_A = compute_triangle_matrix(v4,v2,v1, neg_alpha42, neg_alpha21, neg_alpha14, Dn);
+              
+              // Triangle B:
+              B = compute_triangle_matrix(v1,v3,v4, alpha13, alpha34, -alpha14, Dp);
+              neg_B = compute_triangle_matrix(v1,v3,v4, neg_alpha13, neg_alpha34, -neg_alpha14, Dn);
+              
+              A_local_dof_indices[0] = local_dof_indices[3];
+              A_local_dof_indices[1] = local_dof_indices[1];
+              A_local_dof_indices[2] = local_dof_indices[0];
+            
+              B_local_dof_indices[0] = local_dof_indices[0];
+              B_local_dof_indices[1] = local_dof_indices[2];
+              B_local_dof_indices[2] = local_dof_indices[3];
+              
+				     }
+        
+				density_constraints.distribute_local_to_global(A, cell_rhs,  A_local_dof_indices, hole_matrix, rhs_hole_density);
+				density_constraints.distribute_local_to_global(B, cell_rhs,  B_local_dof_indices, hole_matrix, rhs_hole_density);
+
+				density_constraints.distribute_local_to_global(neg_A, cell_rhs,  A_local_dof_indices, electron_matrix, rhs_electron_density);
+				density_constraints.distribute_local_to_global(neg_B, cell_rhs,  B_local_dof_indices, electron_matrix, rhs_electron_density);
+
+        }
+		  }
+    
+    
+    hole_matrix.compress(VectorOperation::add);
+    electron_matrix.compress(VectorOperation::add);
+    
+    rhs_hole_density.compress(VectorOperation::add);
+    rhs_electron_density.compress(VectorOperation::add);*/
+
+//  INDICI ORIGINALI
 
 template <int dim>
 void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
@@ -647,16 +855,12 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
         const Point<dim> v3 = cell->vertex(0); // bottom left
         const Point<dim> v4 = cell->vertex(1); // bottom right
         
-        std::cout << cell_index   << "\t\t" << 0 << "\t\t" << local_dof_indices[0] << "\t\t" << v1[0] << ", " << v1[1] << "\n";
-        std::cout << cell_index   << "\t\t" << 1 << "\t\t" << local_dof_indices[1] << "\t\t" << v2[0] << ", " << v2[1] << "\n";
-        std::cout << cell_index   << "\t\t" << 2 << "\t\t" << local_dof_indices[2] << "\t\t" << v3[0] << ", " << v3[1] << "\n";
-        std::cout << cell_index++ << "\t\t" << 3 << "\t\t" << local_dof_indices[3] << "\t\t" << v4[0] << ", " << v4[1] << "\n";
-
-        std::cout << cell_index   << "\t\t   " << 0 << "\t\t   " << local_dof_indices[0] << "\t\t   " << v1[0] << ", " << v1[1] << "\n";
-        std::cout << cell_index   << "\t\t   " << 1 << "\t\t   " << local_dof_indices[1] << "\t\t   " << v2[0] << ", " << v2[1] << "\n";
-        std::cout << cell_index   << "\t\t   " << 2 << "\t\t   " << local_dof_indices[2] << "\t\t   " << v3[0] << ", " << v3[1] << "\n";
-        std::cout << cell_index++ << "\t\t   " << 3 << "\t\t   " << local_dof_indices[3] << "\t\t   " << v4[0] << ", " << v4[1] << "\n";
-
+        /*
+        std::cout << cell_index   << "\t\t   " << 2 << "\t\t   " << local_dof_indices[2] << "\t\t   " << v1[0] << ", " << v1[1] << "\n";
+        std::cout << cell_index   << "\t\t   " << 3 << "\t\t   " << local_dof_indices[3] << "\t\t   " << v2[0] << ", " << v2[1] << "\n";
+        std::cout << cell_index   << "\t\t   " << 0 << "\t\t   " << local_dof_indices[0] << "\t\t   " << v3[0] << ", " << v3[1] << "\n";
+        std::cout << cell_index++ << "\t\t   " << 1 << "\t\t   " << local_dof_indices[1] << "\t\t   " << v4[0] << ", " << v4[1] << "\n";
+*/
         const double u1 = -current_solution[local_dof_indices[2]]/V_TH;
         const double u2 = -current_solution[local_dof_indices[3]]/V_TH;
         const double u3 = -current_solution[local_dof_indices[0]]/V_TH;
@@ -720,11 +924,11 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
               
 				     }
         
-				density_constraints.distribute_local_to_global(A, cell_rhs,  A_local_dof_indices, hole_matrix, rhs_hole_density);
-				density_constraints.distribute_local_to_global(B, cell_rhs,  B_local_dof_indices, hole_matrix, rhs_hole_density);
+				hole_constraints.distribute_local_to_global(A, cell_rhs,  A_local_dof_indices, hole_matrix, rhs_hole_density);
+				hole_constraints.distribute_local_to_global(B, cell_rhs,  B_local_dof_indices, hole_matrix, rhs_hole_density);
 
-				density_constraints.distribute_local_to_global(neg_A, cell_rhs,  A_local_dof_indices, electron_matrix, rhs_electron_density);
-				density_constraints.distribute_local_to_global(neg_B, cell_rhs,  B_local_dof_indices, electron_matrix, rhs_electron_density);
+				elec_constraints.distribute_local_to_global(neg_A, cell_rhs,  A_local_dof_indices, electron_matrix, rhs_electron_density);
+				elec_constraints.distribute_local_to_global(neg_B, cell_rhs,  B_local_dof_indices, electron_matrix, rhs_electron_density);
 
         }
 		  }
@@ -735,15 +939,7 @@ void DriftDiffusion<dim>::assemble_drift_diffusion_matrix()
     
     rhs_hole_density.compress(VectorOperation::add);
     rhs_electron_density.compress(VectorOperation::add);
-  /*   
-    pcout << "   (assemble step) L_INF norm of the hole matrix:   "<<hole_matrix.linfty_norm() <<std::endl;           
-    pcout << "   (assemble step) L_INF norm of the electron matrix:  "<<electron_matrix.linfty_norm() <<std::endl;
-    
-    pcout << "   L_INF norm of the hole RHS:  " << rhs_hole_density.linfty_norm() << std::endl;        
-    pcout << "   L_INF norm of the electron RHS:  " << rhs_electron_density.linfty_norm() << std::endl;
-   */
-    //pcout << " End of assembling drift diffusion matrix"<< std::endl<<std::endl;
-
+   
 }
 //-----------------------------------------------------------------------------------------------------------------------------------------------------
 template <int dim>
@@ -788,6 +984,7 @@ void DriftDiffusion<dim>::apply_drift_diffusion_boundary_conditions()
 template <int dim>
 void DriftDiffusion<dim>::solve_drift_diffusion()
 { 
+
   PETScWrappers::MPI::Vector temp_elec(locally_owned_dofs, mpi_communicator);
   PETScWrappers::MPI::Vector temp_hole(locally_owned_dofs, mpi_communicator);
   
@@ -799,6 +996,12 @@ void DriftDiffusion<dim>::solve_drift_diffusion()
   
   solverMUMPS_hole.solve(hole_matrix, temp_hole, rhs_hole_density);
   solverMUMPS_elec.solve(electron_matrix, temp_elec, rhs_electron_density);
+
+  hole_constraints.distribute(temp_hole);
+  elec_constraints.distribute(temp_elec);
+
+
+
 
   temp_elec.compress(VectorOperation::insert);
   temp_hole.compress(VectorOperation::insert);
@@ -812,6 +1015,8 @@ void DriftDiffusion<dim>::solve_drift_diffusion()
   */
 
   //pcout << "   End of solve drift diffusion"<< std::endl<<std::endl;
+    
+
 }
 //----------------------------------------------------------------------------------------------------------------------------
   template <int dim>
@@ -825,6 +1030,7 @@ void DriftDiffusion<dim>::solve_drift_diffusion()
     data_out.add_data_vector(hole_density,     "p");
     data_out.add_data_vector(old_electron_density, "old_n");
     data_out.add_data_vector(old_hole_density,     "old_p");
+    
 
     Vector<float> subdomain(triangulation.n_active_cells());
     for (unsigned int i = 0; i < subdomain.size(); ++i)
