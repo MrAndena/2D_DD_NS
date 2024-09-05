@@ -223,19 +223,6 @@ namespace {
     //density_constraints.reinit(locally_relevant_dofs);   
     //density_constraints.close();
     
-    // tutto nuovo @
-    elec_constraints.clear();
-    elec_constraints.reinit(locally_relevant_dofs);
-    VectorTools::interpolate_boundary_values(dof_handler, 1, Functions::ConstantFunction<dim>(N1), elec_constraints); 
-    VectorTools::interpolate_boundary_values(dof_handler, 2, Functions::ConstantFunction<dim>(N2), elec_constraints); 
-    elec_constraints.close();
-
-    hole_constraints.clear();
-    hole_constraints.reinit(locally_relevant_dofs);
-    VectorTools::interpolate_boundary_values(dof_handler, 1, Functions::ConstantFunction<dim>(P1), hole_constraints); 
-    VectorTools::interpolate_boundary_values(dof_handler, 2, Functions::ConstantFunction<dim>(P2), hole_constraints); 
-    hole_constraints.close();
-
 
     // tutto nuovo @
     elec_constraints.clear();
