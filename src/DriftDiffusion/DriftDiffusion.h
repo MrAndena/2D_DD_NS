@@ -106,6 +106,11 @@ namespace {
       
       //Drift Diffusion AffineConstraints
       AffineConstraints<double> density_constraints;
+
+
+      //Nuovi constraints
+      AffineConstraints<double> hole_constraints;
+      AffineConstraints<double> elec_constraints;
       
       //Poisson Problem Matrices
       PETScWrappers::MPI::SparseMatrix poisson_system_matrix;
