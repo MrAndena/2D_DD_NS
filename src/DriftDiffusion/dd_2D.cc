@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
       
 
       DriftDiffusion<2> dd_2d(tria);
-      dd_2d.run(20, 1e-10);
+      dd_2d.run(20, 1e-12);
     
     }
   catch (std::exception &exc)

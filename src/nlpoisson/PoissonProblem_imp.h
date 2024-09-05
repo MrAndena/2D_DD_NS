@@ -39,6 +39,12 @@ namespace {
       pcout << "    Assemble System Matrix ... ";
       assemble_system_matrix();
 
+      if(counter==1){
+      std::ofstream outFile("our_NL_before_BC.dat");
+      system_matrix.print(outFile);
+      outFile.close();
+    }
+
 
       std::map<types::global_dof_index, double> emitter_boundary_values, collector_boundary_values;
       
@@ -56,6 +62,11 @@ namespace {
       pcout << " done! "  << std::endl;
       
       pcout << "    Solve System ... ";
+            if(counter==1){
+      std::ofstream outFile("our_NL_after_BC.dat");
+      system_matrix.print(outFile);
+      outFile.close();
+    }
       solve(); // dentro c'e anche il clamping
       pcout << " done! "  << std::endl;
 
